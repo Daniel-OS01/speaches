@@ -28,6 +28,7 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Install 'uv' for Python package management, as used in the original project
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/home/ubuntu/.cargo/bin:${PATH}"
 
 # Copy dependency definition files
 COPY --chown=ubuntu:ubuntu pyproject.toml uv.lock ./
