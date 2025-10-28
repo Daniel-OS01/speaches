@@ -3,7 +3,7 @@ import os
 import subprocess
 import time
 from logging import INFO, basicConfig, getLogger
-from typing import Any, Dict, Tuple
+from typing import Any
 
 import requests
 import runpod
@@ -13,7 +13,7 @@ basicConfig(level=INFO)
 logger = getLogger(__name__)
 
 
-def start_server() -> Tuple[subprocess.Popen[bytes], str, int]:
+def start_server() -> tuple[subprocess.Popen[bytes], str, int]:
     """Starts the Uvicorn server for Speaches in a background subprocess."""
     host = os.getenv("UVICORN_HOST", "127.0.0.1")
     port = int(os.getenv("UVICORN_PORT", "8000"))
@@ -55,9 +55,9 @@ def is_server_ready(host: str, port: int, retries: int = 12, delay: int = 5) -> 
 SERVER_IS_READY = is_server_ready(SERVER_HOST, SERVER_PORT)
 
 
-def handler(event: Dict[str, Any]) -> Dict[str, Any]:
+def handler(event: dict[str, Any]) -> dict[str, Any]:
     """Handles incoming requests from Runpod, proxies them to the local Speaches server.
-    
+
     Returns the response from the server.
     """
     if not SERVER_IS_READY:
@@ -117,9 +117,9 @@ def handler(event: Dict[str, Any]) -> Dict[str, Any]:
                 "details": e.response.text
             }
         }
-    except requests.exceptions.RequestException as e:
-        logger.exception(f"Request Exception: {e}")
-        return {"error": {"message": f"Failed to connect to speaches server: {e}"}}
+    except requests.exceptions.RequestException:
+        logger.exception("Request Exception")
+        return {"error": {"message": "Failed to connect to speaches server"}}
 
 
 # Start the Runpod serverless worker
