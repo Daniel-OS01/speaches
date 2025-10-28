@@ -6,7 +6,14 @@ import time
 from typing import Any
 
 import requests
-import runpod
+
+# Conditional import for runpod since it may not be available in all environments
+try:
+    import runpod  # type: ignore # noqa: PGH003
+    RUNPOD_AVAILABLE = True
+except ImportError:
+    runpod = None  # type: ignore # noqa: PGH003
+    RUNPOD_AVAILABLE = False
 
 # Configure logging for better visibility in Runpod logs
 basicConfig(level=INFO)
@@ -99,7 +106,7 @@ def handler(event: dict[str, Any]) -> dict[str, Any]:
             encoded_audio = base64.b64encode(audio_bytes).decode("utf-8")
             return {"status": "success", "content_type": content_type, "audio_content": encoded_audio}
         else:
-            return response.text()
+            return {"text": response.text}
 
     except requests.exceptions.HTTPError as e:
         logger.exception(f"HTTP Error: {e.response.status_code} - {e.response.text}")
@@ -116,8 +123,10 @@ def handler(event: dict[str, Any]) -> dict[str, Any]:
 
 # Start the Runpod serverless worker
 if __name__ == "__main__":
-    if SERVER_IS_READY:
+    if RUNPOD_AVAILABLE and SERVER_IS_READY:
         logger.info("Starting Runpod serverless handler.")
-        runpod.serverless.start({"handler": handler})
+        runpod.serverless.start({"handler": handler})  # type: ignore # noqa: PGH003
+    elif not RUNPOD_AVAILABLE:
+        logger.warning("Runpod is not available. Skipping Runpod handler initialization.")
     else:
         logger.critical("Cannot start Runpod handler because Speaches server is not ready.")

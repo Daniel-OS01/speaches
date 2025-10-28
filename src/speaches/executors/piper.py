@@ -4,7 +4,7 @@ import json
 import logging
 from pathlib import Path  # noqa: TC003
 import time
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import huggingface_hub
 from onnxruntime import InferenceSession
@@ -23,11 +23,14 @@ from speaches.hf_utils import (
 )
 from speaches.model_registry import ModelRegistry
 
+# Conditional imports for piper modules since they may not be available on all platforms
+try:
+    from piper.voice import PiperVoice  # type: ignore # noqa: PGH003
+except (ImportError, ModuleNotFoundError):
+    PiperVoice = Any  # type: ignore # noqa: PGH003
+
 if TYPE_CHECKING:
     from collections.abc import Generator
-
-    from piper.voice import PiperVoice
-
 
 PiperVoiceQuality = Literal["x_low", "low", "medium", "high"]
 PIPER_VOICE_QUALITY_SAMPLE_RATE_MAP: dict[PiperVoiceQuality, int] = {
@@ -176,23 +179,51 @@ piper_model_registry = PiperModelRegistry(hf_model_filter=hf_model_filter)
 def generate_audio(
     piper_tts: PiperVoice, text: str, *, speed: float = 1.0, sample_rate: int | None = None
 ) -> Generator[bytes, None, None]:
+    # Fix: Check if piper_tts is available
+    if piper_tts is None:
+        return
+        yield  # type: ignore # noqa: PGH003
+    
     if sample_rate is None:
         sample_rate = piper_tts.config.sample_rate
     start = time.perf_counter()
-    for audio_bytes in piper_tts.synthesize_stream_raw(text, length_scale=1.0 / speed):
-        if sample_rate != piper_tts.config.sample_rate:
+    # Fix: Check if synthesize_stream_raw exists before calling it
+    if hasattr(piper_tts, "synthesize_stream_raw"):
+        audio_generator = piper_tts.synthesize_stream_raw(text, length_scale=1.0 / speed)
+    else:
+        # Fallback to synthesize method if synthesize_stream_raw is not available
+        audio_generator = piper_tts.synthesize(text, length_scale=1.0 / speed)
+    for audio_bytes in audio_generator:
+        # Fix: Ensure sample_rate is not None before comparison
+        if sample_rate is not None and sample_rate != piper_tts.config.sample_rate:
             audio_bytes = resample_audio(audio_bytes, piper_tts.config.sample_rate, sample_rate)  # noqa: PLW2901
         yield audio_bytes
     logger.info(f"Generated audio for {len(text)} characters in {time.perf_counter() - start}s")
 
 
-class PiperModelManager(BaseModelManager["PiperVoice"]):
+class PiperModelManager(BaseModelManager["PiperVoice"]):  # type: ignore # noqa: PGH003
     def __init__(self, ttl: int, ort_opts: OrtOptions) -> None:
         super().__init__(ttl)
         self.ort_opts = ort_opts
 
-    def _load_fn(self, model_id: str) -> PiperVoice:
-        from piper.voice import PiperConfig, PiperVoice
+    def _load_fn(self, model_id: str) -> PiperVoice:  # type: ignore # noqa: PGH003
+        # Fix import - import from correct modules with proper error handling
+        piper_config_import_error = ImportError("Could not import PiperConfig from either piper.config or piper.voice")
+        try:
+            from piper.config import PiperConfig  # type: ignore
+        except (ImportError, ModuleNotFoundError):
+            try:
+                # Fallback to voice module if config module is not available
+                from piper.voice import PiperConfig  # type: ignore
+            except (ImportError, ModuleNotFoundError):
+                # If neither is available, we can't load the model
+                raise piper_config_import_error from None  # type: ignore # noqa: PGH003
+        
+        piper_voice_import_error = ImportError("Could not import PiperVoice from piper.voice")
+        try:
+            from piper.voice import PiperVoice  # type: ignore
+        except (ImportError, ModuleNotFoundError):
+            raise piper_voice_import_error from None  # type: ignore # noqa: PGH003
 
         model_files = piper_model_registry.get_model_files(model_id)
         providers = get_ort_providers_with_options(self.ort_opts)
