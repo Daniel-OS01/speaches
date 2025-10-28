@@ -20,11 +20,7 @@ def start_server() -> tuple[subprocess.Popen[bytes], str, int]:
 
     logger.info("Starting Speaches server...")
     # Command to start the FastAPI application using uvicorn
-    command = [
-        "uvicorn", "speaches.main:app",
-        "--host", host,
-        "--port", str(port)
-    ]
+    command = ["uvicorn", "speaches.main:app", "--host", host, "--port", str(port)]
     # Start the server as a subprocess
     server_process = subprocess.Popen(command)
     logger.info(f"Speaches server process started with PID: {server_process.pid}")
@@ -45,7 +41,7 @@ def is_server_ready(host: str, port: int, retries: int = 12, delay: int = 5) -> 
                 logger.info("Speaches server is ready.")
                 return True
         except requests.exceptions.RequestException:
-            logger.warning(f"Server not ready yet (attempt {i+1}/{retries}). Retrying in {delay}s...")
+            logger.warning(f"Server not ready yet (attempt {i + 1}/{retries}). Retrying in {delay}s...")
             time.sleep(delay)
     logger.error("Server failed to start in the allocated time.")
     return False
@@ -87,9 +83,9 @@ def handler(event: dict[str, Any]) -> dict[str, Any]:
 
         # Make the request to the local server
         if method == "POST" and files_data:
-             response = requests.post(url, files=files_data, data=data_payload, headers=headers, timeout=300)
+            response = requests.post(url, files=files_data, data=data_payload, headers=headers, timeout=300)
         else:
-             response = requests.request(method, url, json=body, headers=headers, timeout=120)
+            response = requests.request(method, url, json=body, headers=headers, timeout=120)
 
         response.raise_for_status()
 
@@ -101,11 +97,7 @@ def handler(event: dict[str, Any]) -> dict[str, Any]:
             # Base64 encode audio to return it in the JSON response
             audio_bytes = response.content
             encoded_audio = base64.b64encode(audio_bytes).decode("utf-8")
-            return {
-                "status": "success",
-                "content_type": content_type,
-                "audio_content": encoded_audio
-            }
+            return {"status": "success", "content_type": content_type, "audio_content": encoded_audio}
         else:
             return response.text()
 
@@ -114,7 +106,7 @@ def handler(event: dict[str, Any]) -> dict[str, Any]:
         return {
             "error": {
                 "message": f"Request to speaches server failed with status {e.response.status_code}",
-                "details": e.response.text
+                "details": e.response.text,
             }
         }
     except requests.exceptions.RequestException:

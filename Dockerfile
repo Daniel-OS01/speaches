@@ -28,12 +28,12 @@ RUN python3.12 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="/home/ubuntu/.cargo/bin:${PATH}"
+ENV PATH="/home/ubuntu/.local/bin:${PATH}"
 
 COPY --chown=ubuntu:ubuntu pyproject.toml uv.lock ./
 COPY --chown=ubuntu:ubuntu runpod_requirements.txt ./
 
-RUN /home/ubuntu/.cargo/bin/uv sync --frozen --compile-bytecode --extra ui
+RUN /home/ubuntu/.local/bin/uv sync --frozen --compile-bytecode --extra ui
 RUN pip install -r runpod_requirements.txt
 
 COPY --chown=ubuntu:ubuntu src/ ./src
