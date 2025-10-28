@@ -164,15 +164,9 @@ piper-phonemize = [
   { url = "https://github.com/fedirz/piper-phonemize/raw/refs/heads/master/dist/piper_phonemize-1.2.0-cp312-cp312-manylinux_2_28_x86_64.whl", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
 ]
 
-[[tool.uv.dependency-metadata]]
-name = "piper-tts"
-version = "1.2.0"
-requires-dist = ["piper-phonemize"]
-
 [tool.uv.workspace]
 members = [
     "packages/speaches-cli",
-    # "misc/onnx_export",
 ]
 
 [tool.hatch.build]
