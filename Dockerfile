@@ -9,6 +9,10 @@ RUN apt-get update && \
     ca-certificates \
     curl \
     ffmpeg \
+    software-properties-common && \
+    add-apt-repository ppa:deadsnakes/ppa && \
+    apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     python3.12 \
     python3.12-venv \
     python3-pip && \
