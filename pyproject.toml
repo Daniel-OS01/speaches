@@ -160,3 +160,8 @@ piper-tts = [
 members = [
     "packages/speaches-cli",
 ]
+    # "misc/onnx_export",
+]
+
+[tool.hatch.build]
+packages = ["src/speaches"]
