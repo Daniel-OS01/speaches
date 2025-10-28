@@ -2,7 +2,6 @@
 name = "speaches"
 version = "0.1.0"
 requires-python = ">=3.12,<3.13"
-# https://packaging.python.org/en/latest/specifications/version-specifiers/#id5
 dependencies = [
     "ctranslate2>=4.5.0",
     "fastapi>=0.115.6",
@@ -59,7 +58,6 @@ opentelemetry = [
     "opentelemetry-instrumentation-logging==0.50b0",
     "opentelemetry-instrumentation-threading==0.50b0",
     "opentelemetry-instrumentation-urllib==0.50b0",
-    # "opentelemetry-instrumentation-wsgi==0.50b0"
     "opentelemetry-instrumentation-fastapi==0.50b0",
     "opentelemetry-instrumentation-grpc==0.50b0",
     "opentelemetry-instrumentation-httpx==0.50b0",
@@ -73,7 +71,6 @@ opentelemetry = [
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-# https://docs.astral.sh/ruff/configuration/
 [tool.ruff]
 line-length = 120
 target-version = "py312"
@@ -82,61 +79,55 @@ target-version = "py312"
 select = ["ALL"]
 ignore = [
     "FIX",
-    "TD", # disable todo warnings
-    "ERA",  # allow commented out code
-    "ANN003", # missing kwargs
+    "TD",
+    "ERA",
+    "ANN003",
     "B006",
     "B008",
-    "COM812", # trailing comma
-    "D10",  # disabled required docstrings
+    "COM812",
+    "D10",
     "D401",
     "EM102",
     "FBT001",
     "FBT002",
     "PLR0913",
-    "PLR2004", # magic
+    "PLR2004",
     "RET504",
     "RET505",
     "RET508",
-    "S101", # allow assert
+    "S101",
     "S104",
-    "S603", # subprocess untrusted input
+    "S603",
     "SIM102",
-    "T201", # print
+    "T201",
     "TRY003",
     "TRY300",
     "TRY301",
     "W505",
-    "ISC001", # recommended to disable for formatting
+    "ISC001",
     "INP001",
     "PT018",
-    "G004", # logging f string
-    "E501", # line-too-long
+    "G004",
+    "E501",
     "PLC0415"
 ]
 
 [tool.ruff.lint.isort]
 force-sort-within-sections = true
 
-# https://docs.astral.sh/ruff/settings/#per-file-ignores
 [tool.ruff.lint.per-file-ignores]
 "src/speaches/types/**.py" = ["PYI051"]
 
 [tool.ruff.format]
-# Like Black, use double quotes for strings.
 quote-style = "double"
-# Like Black, indent with spaces, rather than tabs.
 indent-style = "space"
-# Like Black, respect magic trailing commas.
 skip-magic-trailing-comma = false
-# Like Black, automatically detect the appropriate line ending.
 line-ending = "auto"
 
 [tool.basedpyright]
 typeCheckingMode = "standard"
 pythonVersion = "3.12"
 pythonPlatform = "Linux"
-# https://github.com/DetachHead/basedpyright?tab=readme-ov-file#pre-commit-hook
 venvPath = "."
 venv = ".venv"
 ignore = [
@@ -144,18 +135,16 @@ ignore = [
 ]
 
 [tool.pytest.ini_options]
-asyncio_default_fixture_loop_scope = "function" # this fixes pytest warning
+asyncio_default_fixture_loop_scope = "function"
 filterwarnings = [
     'ignore::DeprecationWarning'
 ]
-# https://docs.pytest.org/en/stable/how-to/mark.html#registering-marks
 markers = [
     "requires_openai",
 ]
 
 [tool.uv]
 constraint-dependencies = ["llvmlite>=0.40.0"]
-# TODO: create an issue on https://github.com/thewh1teagle/kokoro-onnx regarding this
 override-dependencies = ["onnxruntime-gpu>=1.22.0 ; platform_machine == 'x86_64'", "onnxruntime>=1.22.0 ; platform_machine != 'x86_64'"]
 
 [tool.uv.sources]
