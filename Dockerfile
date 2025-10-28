@@ -34,13 +34,8 @@ ENV PATH="/home/ubuntu/.cargo/bin:${PATH}"
 COPY --chown=ubuntu:ubuntu pyproject.toml uv.lock ./
 COPY --chown=ubuntu:ubuntu runpod_requirements.txt ./
 
-# Install Python dependencies
-# First, install from uv.lock for the main application, including UI extras for full functionality
-RUN uv sync --frozen --compile-bytecode --extra ui
-# Then, install Runpod-specific dependencies
-RUN pip install -r runpod_requirements.txt
 
-# Existing apt and Python setup...
+
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     ca-certificates \
@@ -59,6 +54,16 @@ RUN pip install uv
 
 # Now the step should succeed
 RUN uv sync --frozen --compile-bytecode --extra ui
+
+
+# Install Python dependencies
+# First, install from uv.lock for the main application, including UI extras for full functionality
+RUN uv sync --frozen --compile-bytecode --extra ui
+# Then, install Runpod-specific dependencies
+RUN pip install -r runpod_requirements.txt
+
+# Existing apt and Python setup...
+
 
 # Copy the application source code and necessary files
 COPY --chown=ubuntu:ubuntu src/ ./src
