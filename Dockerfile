@@ -1,5 +1,5 @@
 # Use the same base image as the original project for GPU support
-ARG BASE_IMAGE=nvidia/cuda:12.9.0-cudnn-runtime-ubuntu24.04
+ARG BASE_IMAGE=nvidia/cuda:12.5.0-cudnn-runtime-ubuntu24.04
 FROM ${BASE_IMAGE}
 
 LABEL org.opencontainers.image.source="https://github.com/Daniel-OS01/speaches"
@@ -39,6 +39,26 @@ COPY --chown=ubuntu:ubuntu runpod_requirements.txt ./
 RUN uv sync --frozen --compile-bytecode --extra ui
 # Then, install Runpod-specific dependencies
 RUN pip install -r runpod_requirements.txt
+
+# Existing apt and Python setup...
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    ffmpeg \
+    python3-pip \
+    python3-venv && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Add this line before calling 'uv'
+RUN pip install uv
+
+# Or, if recommended by uv maintainers, use the official install script
+# RUN curl -Ls https://astral.sh/uv/install.sh | bash
+
+# Now the step should succeed
+RUN uv sync --frozen --compile-bytecode --extra ui
 
 # Copy the application source code and necessary files
 COPY --chown=ubuntu:ubuntu src/ ./src
