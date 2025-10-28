@@ -12,7 +12,8 @@ from fastapi import (
 )
 from fastapi.responses import StreamingResponse
 from faster_whisper.transcribe import BatchedInferencePipeline, TranscriptionInfo
-from huggingface_hub.utils._cache_manager import _scan_cached_repo
+from faster_whisper.vad import get_speech_timestamps
+import numpy as np
 
 from speaches.api_types import (
     DEFAULT_TIMESTAMP_GRANULARITIES,
@@ -25,17 +26,12 @@ from speaches.api_types import (
 from speaches.dependencies import (
     AudioFileDependency,
     ConfigDependency,
-    ParakeetModelManagerDependency,
-    WhisperModelManagerDependency,
+    ExecutorRegistryDependency,
 )
-from speaches.executors.parakeet import utils as nemo_conformer_tdt_utils
-from speaches.executors.whisper import utils as whisper_utils
-from speaches.hf_utils import (
-    MODEL_CARD_DOESNT_EXISTS_ERROR_MESSAGE,
-    get_model_card_data_from_cached_repo_info,
-    get_model_repo_path,
-)
+from speaches.executors.parakeet import ParakeetModelManager
+from speaches.executors.whisper import WhisperModelManager
 from speaches.model_aliases import ModelId
+from speaches.routers.utils import find_executor_for_model_or_raise, get_model_card_data_or_raise
 from speaches.text_utils import segments_to_srt, segments_to_text, segments_to_vtt
 
 logger = logging.getLogger(__name__)
@@ -43,6 +39,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["automatic-speech-recognition"])
 
 type ResponseFormat = Literal["text", "json", "verbose_json", "srt", "vtt"]
+RESPONSE_FORMATS = ("text", "json", "verbose_json", "srt", "vtt")
 
 # https://platform.openai.com/docs/api-reference/audio/createTranscription#audio-createtranscription-response_format
 DEFAULT_RESPONSE_FORMAT: ResponseFormat = "json"
@@ -111,7 +108,7 @@ def segments_to_streaming_response(
 )
 def translate_file(
     config: ConfigDependency,
-    whisper_model_manager: WhisperModelManagerDependency,
+    executor_registry: ExecutorRegistryDependency,
     audio: AudioFileDependency,
     model: Annotated[ModelId, Form()],
     prompt: Annotated[str | None, Form()] = None,
@@ -123,7 +120,9 @@ def translate_file(
     # Use config default if vad_filter not explicitly provided
     effective_vad_filter = vad_filter if vad_filter is not None else config._unstable_vad_filter  # noqa: SLF001
 
-    with whisper_model_manager.load_model(model) as whisper:
+    # Translation is only supported by Whisper
+    whisper_executor = executor_registry.transcription[0]  # Whisper is first
+    with whisper_executor.model_manager.load_model(model) as whisper:
         whisper_model = BatchedInferencePipeline(model=whisper) if config.whisper.use_batched_mode else whisper
         segments, transcription_info = whisper_model.transcribe(
             audio,
@@ -158,10 +157,9 @@ async def get_timestamp_granularities(request: Request) -> TimestampGranularitie
     "/v1/audio/transcriptions",
     response_model=str | CreateTranscriptionResponseJson | CreateTranscriptionResponseVerboseJson,
 )
-def transcribe_file(  # noqa: C901
+def transcribe_file(  # noqa: C901, PLR0912
     config: ConfigDependency,
-    whisper_model_manager: WhisperModelManagerDependency,
-    parakeet_model_manager: ParakeetModelManagerDependency,
+    executor_registry: ExecutorRegistryDependency,
     request: Request,
     audio: AudioFileDependency,
     model: Annotated[ModelId, Form()],
@@ -177,7 +175,7 @@ def transcribe_file(  # noqa: C901
     stream: Annotated[bool, Form()] = False,
     hotwords: Annotated[str | None, Form()] = None,
     vad_filter: Annotated[bool | None, Form()] = None,
-    without_timestamps: Annotated[bool | None, Form()] = None,
+    without_timestamps: Annotated[bool, Form()] = True,
 ) -> Response | StreamingResponse:
     # Use config default if vad_filter not explicitly provided
     effective_vad_filter = vad_filter if vad_filter is not None else config._unstable_vad_filter  # noqa: SLF001
@@ -188,21 +186,11 @@ def transcribe_file(  # noqa: C901
             "It only makes sense to provide `timestamp_granularities[]` when `response_format` is set to `verbose_json`. See https://platform.openai.com/docs/api-reference/audio/createTranscription#audio-createtranscription-timestamp_granularities."
         )
 
-    model_repo_path = get_model_repo_path(model)
-    if model_repo_path is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Model '{model}' is not installed locally. You can download the model using `POST /v1/models`",
-        )
-    cached_repo_info = _scan_cached_repo(model_repo_path)
-    model_card_data = get_model_card_data_from_cached_repo_info(cached_repo_info)
-    if model_card_data is None:
-        raise HTTPException(
-            status_code=500,
-            detail=MODEL_CARD_DOESNT_EXISTS_ERROR_MESSAGE.format(model_id=model),
-        )
-    if whisper_utils.hf_model_filter.passes_filter(model, model_card_data):
-        with whisper_model_manager.load_model(model) as whisper:
+    model_card_data = get_model_card_data_or_raise(model)
+    executor = find_executor_for_model_or_raise(model, model_card_data, executor_registry.transcription)
+
+    if isinstance(executor.model_manager, WhisperModelManager):
+        with executor.model_manager.load_model(model) as whisper:
             whisper_model = BatchedInferencePipeline(model=whisper) if config.whisper.use_batched_mode else whisper
             segments, transcription_info = whisper_model.transcribe(
                 audio,
@@ -221,29 +209,73 @@ def transcribe_file(  # noqa: C901
                 return segments_to_streaming_response(segments, transcription_info, response_format)
             else:
                 return segments_to_response(segments, transcription_info, response_format)
-    elif nemo_conformer_tdt_utils.hf_model_filter.passes_filter(model, model_card_data):
+    elif isinstance(executor.model_manager, ParakeetModelManager):
         if stream:
             raise HTTPException(status_code=500, detail=f"Model '{model}' does not support streaming yet.")
         if response_format not in ("text", "json"):
             raise HTTPException(
-                status_code=500, detail=f"Model '{model}' only supports 'text' and 'json' response formats for now."
+                status_code=500,
+                detail=f"Model '{model}' only supports 'text' and 'json' response formats for now.",
             )
-        with parakeet_model_manager.load_model(model) as parakeet:
+        with executor.model_manager.load_model(model) as parakeet:
             # TODO: issue warnings when client specifies unsupported parameters like `prompt`, `temperature`, `hotwords`, etc.
-            timestamped_result = parakeet.with_timestamps().recognize(audio)
+
+            # Somewhat hacky work around for transcribing large audio files by splitting them into smaller chunks using VAD. May not work well for all use cases. Bug: https://github.com/istupakov/onnx-asr/issues/18
+
+            # Apply VAD to split audio into speech segments
+            speech_timestamps = get_speech_timestamps(audio, sampling_rate=16000)
+
+            if not speech_timestamps:
+                # No speech detected, return empty transcription
+                match response_format:
+                    case "text":
+                        return Response("", media_type="text/plain")
+                    case "json":
+                        return Response(
+                            CreateTranscriptionResponseJson(text="").model_dump_json(),
+                            media_type="application/json",
+                        )
+
+            # Extract speech segments from audio
+            waveforms = []
+            waveforms_len = []
+            for timestamp in speech_timestamps:
+                start = timestamp["start"]
+                end = timestamp["end"]
+                segment = audio[start:end]
+                waveforms.append(segment)
+                waveforms_len.append(len(segment))
+
+            # Prepare batch arrays
+            max_len = max(waveforms_len)
+            waveforms_batch = np.zeros((len(waveforms), max_len), dtype=np.float32)
+            for i, waveform in enumerate(waveforms):
+                waveforms_batch[i, : len(waveform)] = waveform
+            waveforms_len_batch = np.array(waveforms_len, dtype=np.int64)
+
+            # print all segment sizes in descending order
+
+            logger.info(f"Transcribing {len(waveforms)} segments with lengths: {sorted(waveforms_len, reverse=True)}")
+            # Process all segments in batch
+            results = list(
+                parakeet.with_timestamps().asr.recognize_batch(waveforms_batch, waveforms_len_batch, language=language)
+            )
+
+            # Combine results
+            combined_text = " ".join(result.text for result in results)
 
             match response_format:
                 case "text":
-                    return Response(timestamped_result.text, media_type="text/plain")
+                    return Response(combined_text, media_type="text/plain")
                 case "json":
                     return Response(
                         CreateTranscriptionResponseJson(
-                            text=timestamped_result.text,
+                            text=combined_text,
                         ).model_dump_json(),
                         media_type="application/json",
                     )
-    else:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Model '{model}' is not supported. If you think this is a mistake, please open an issue.",
-        )
+
+    raise HTTPException(
+        status_code=500,
+        detail=f"Executor for model '{model}' exists but is not properly configured. This is a bug.",
+    )

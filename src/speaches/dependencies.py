@@ -1,5 +1,6 @@
 from functools import lru_cache
 import logging
+import time
 from typing import Annotated
 
 import av.error
@@ -20,10 +21,7 @@ from openai.resources.audio import AsyncSpeech, AsyncTranscriptions
 from openai.resources.chat.completions import AsyncCompletions
 
 from speaches.config import Config
-from speaches.executors.kokoro.model_manager import KokoroModelManager
-from speaches.executors.parakeet.model_manager import ParakeetModelManager
-from speaches.executors.piper.model_manager import PiperModelManager
-from speaches.executors.whisper.model_manager import WhisperModelManager
+from speaches.executors.shared.registry import ExecutorRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -37,43 +35,25 @@ def get_config() -> Config:
     return Config()
 
 
-ConfigDependency = Annotated[Config, Depends(get_config)]
+async def get_config_async() -> Config:
+    return get_config()
+
+
+ConfigDependency = Annotated[Config, Depends(get_config_async)]
 
 
 @lru_cache
-def get_whisper_model_manager() -> WhisperModelManager:
+def get_executor_registry() -> ExecutorRegistry:
     config = get_config()
-    return WhisperModelManager(config.stt_model_ttl, config.whisper)
+    return ExecutorRegistry(config)
 
 
-WhisperModelManagerDependency = Annotated[WhisperModelManager, Depends(get_whisper_model_manager)]
+async def get_executor_registry_async() -> ExecutorRegistry:
+    return get_executor_registry()
 
 
-@lru_cache
-def get_piper_model_manager() -> PiperModelManager:
-    config = get_config()
-    return PiperModelManager(config.tts_model_ttl, config.unstable_ort_opts)
+ExecutorRegistryDependency = Annotated[ExecutorRegistry, Depends(get_executor_registry_async)]
 
-
-PiperModelManagerDependency = Annotated[PiperModelManager, Depends(get_piper_model_manager)]
-
-
-@lru_cache
-def get_kokoro_model_manager() -> KokoroModelManager:
-    config = get_config()
-    return KokoroModelManager(config.tts_model_ttl, config.unstable_ort_opts)
-
-
-KokoroModelManagerDependency = Annotated[KokoroModelManager, Depends(get_kokoro_model_manager)]
-
-
-@lru_cache
-def get_parakeet_model_manager() -> ParakeetModelManager:
-    config = get_config()
-    return ParakeetModelManager(config.stt_model_ttl, config.unstable_ort_opts)
-
-
-ParakeetModelManagerDependency = Annotated[ParakeetModelManager, Depends(get_parakeet_model_manager)]
 
 security = HTTPBearer(auto_error=False)
 
@@ -94,7 +74,13 @@ def audio_file_dependency(
     file: Annotated[UploadFile, Form()],
 ) -> NDArray[float32]:
     try:
-        audio = decode_audio(file.file)
+        logger.debug(
+            f"Decoding audio file: {file.filename}, content_type: {file.content_type}, header: {file.headers}, size: {file.size}"
+        )
+        start = time.perf_counter()
+        audio = decode_audio(file.file, sampling_rate=16000)
+        elapsed, duration = time.perf_counter() - start, len(audio) / 16000
+        logger.debug(f"Decoded {duration:.5f}s of audio in {elapsed:.5f}s (RTF: {elapsed / duration:.5f})")
     except av.error.InvalidDataError as e:
         raise HTTPException(
             status_code=415,
@@ -129,7 +115,11 @@ def get_completion_client() -> AsyncCompletions:
     return oai_client.chat.completions
 
 
-CompletionClientDependency = Annotated[AsyncCompletions, Depends(get_completion_client)]
+async def get_completion_client_async() -> AsyncCompletions:
+    return get_completion_client()
+
+
+CompletionClientDependency = Annotated[AsyncCompletions, Depends(get_completion_client_async)]
 
 
 @lru_cache
@@ -153,12 +143,16 @@ def get_speech_client() -> AsyncSpeech:
         http_client=http_client,
         api_key=config.api_key.get_secret_value() if config.api_key else "cant-be-empty",
         max_retries=0,
-        base_url=f"{config.loopback_host_url}/v1",
+        base_url=f"{config.loopback_host_url}/v1" if config.loopback_host_url else None,
     )
     return oai_client.audio.speech
 
 
-SpeechClientDependency = Annotated[AsyncSpeech, Depends(get_speech_client)]
+def get_speech_client_async() -> AsyncSpeech:
+    return get_speech_client()
+
+
+SpeechClientDependency = Annotated[AsyncSpeech, Depends(get_speech_client_async)]
 
 
 @lru_cache
@@ -182,9 +176,13 @@ def get_transcription_client() -> AsyncTranscriptions:
         http_client=http_client,
         api_key=config.api_key.get_secret_value() if config.api_key else "cant-be-empty",
         max_retries=0,
-        base_url=f"{config.loopback_host_url}/v1",
+        base_url=f"{config.loopback_host_url}/v1" if config.loopback_host_url else None,
     )
     return oai_client.audio.transcriptions
 
 
-TranscriptionClientDependency = Annotated[AsyncTranscriptions, Depends(get_transcription_client)]
+async def get_transcription_client_async() -> AsyncTranscriptions:
+    return get_transcription_client()
+
+
+TranscriptionClientDependency = Annotated[AsyncTranscriptions, Depends(get_transcription_client_async)]

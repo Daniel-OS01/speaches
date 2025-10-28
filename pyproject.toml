@@ -18,7 +18,7 @@ dependencies = [
     "sounddevice>=0.5.2",
     "soundfile>=0.13.1",
     "uvicorn>=0.35.0",
-    "openai[realtime]>=1.95.1",
+    "openai[realtime]>=1.109.1",
     "aiostream>=0.7.0",
     "cachetools>=6.1.0",
     "httpx-ws>=0.7.2",
@@ -48,7 +48,7 @@ dev = [
     "httpx-sse>=0.4.1",
 ]
 ui = [
-    "gradio>=5.13.0",
+    "gradio>=5.49.1",
     "httpx-sse>=0.4.1",
 ]
 opentelemetry = [
@@ -139,6 +139,9 @@ pythonPlatform = "Linux"
 # https://github.com/DetachHead/basedpyright?tab=readme-ov-file#pre-commit-hook
 venvPath = "."
 venv = ".venv"
+ignore = [
+    "misc/**"
+]
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function" # this fixes pytest warning
@@ -167,4 +170,7 @@ version = "1.2.0"
 requires-dist = ["piper-phonemize"]
 
 [tool.uv.workspace]
-members = ["packages/speaches-cli"]
+members = [
+    "packages/speaches-cli",
+    # "misc/onnx_export",
+]
