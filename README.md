@@ -1,38 +1,96 @@
+# **Speaches on Runpod Serverless**
+[![Runpod](https://api.runpod.io/badge/Daniel-OS01/speaches)](https://console.runpod.io/hub/Daniel-OS01/speaches)
+
+This document provides instructions on how to deploy and use the [Speaches](https://github.com/Daniel-OS01/speaches) server on [Runpod Serverless](https://www.google.com/search?q=https://www.runpod.io/serverless).
 # Speaches
 
-`speaches` is an OpenAI API-compatible server supporting streaming transcription, translation, and speech generation. Speach-to-Text is powered by [faster-whisper](https://github.com/SYSTRAN/faster-whisper) and for Text-to-Speech [piper](https://github.com/rhasspy/piper) and [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) are used. This project aims to be Ollama, but for TTS/STT models.
+## **Overview**
 
-See the documentation for installation instructions and usage: [speaches.ai](https://speaches.ai/)
+Speaches is an OpenAI API-compatible server for speech-to-text and text-to-speech. By deploying it on Runpod Serverless, you get a scalable, pay-as-you-go API endpoint for your audio processing needs, backed by powerful GPUs.
 
-## Features:
+This adaptation works by running the Speaches Uvicorn server inside the serverless worker. A Runpod handler script acts as a proxy, forwarding incoming API requests to the Speaches server and returning its responses. This setup ensures all features, including the Realtime API, VAD, and dynamic model loading, are available.
 
-- OpenAI API compatible. All tools and SDKs that work with OpenAI's API should work with `speaches`.
-- Audio generation (chat completions endpoint) | [OpenAI Documentation](https://platform.openai.com/docs/guides/realtime)
-  - Generate a spoken audio summary of a body of text (text in, audio out)
-  - Perform sentiment analysis on a recording (audio in, text out)
-  - Async speech to speech interactions with a model (audio in, audio out)
-- Streaming support (transcription is sent via SSE as the audio is transcribed. You don't need to wait for the audio to fully be transcribed before receiving it).
-- Dynamic model loading / offloading. Just specify which model you want to use in the request and it will be loaded automatically. It will then be unloaded after a period of inactivity.
-- Text-to-Speech via `kokoro`(Ranked #1 in the [TTS Arena](https://huggingface.co/spaces/Pendrokar/TTS-Spaces-Arena)) and `piper` models.
-- GPU and CPU support.
-- [Deployable via Docker Compose / Docker](https://speaches.ai/installation/)
-- [Realtime API](https://speaches.ai/usage/realtime-api)
-- [Highly configurable](https://speaches.ai/configuration/)
+## **How to Deploy**
 
-Please create an issue if you find a bug, have a question, or a feature suggestion.
+1. **Fork the Repository:** If you haven't already, fork the [speaches repository](https://github.com/Daniel-OS01/speaches) to your own GitHub account.  
+2. **Connect to Runpod:** Log in to your Runpod account and connect your GitHub account.  
+3. **Create a New Template:**  
+   * Go to **Templates** in the Runpod console and click **New Template**.  
+   * Give it a name (e.g., "speaches-serverless").  
+   * Set **Container Image** to the name of the image you will build (e.g., your-dockerhub-username/speaches-runpod:latest). You will need to push the Docker image there later.  
+   * Set **Container Disk** to at least 15 GB to accommodate models.  
+4. **Create a Serverless Endpoint:**  
+   * Go to **Serverless** \-\> **My Endpoints** and click **New Endpoint**.  
+   * Select the template you just created.  
+   * Configure the endpoint settings (GPU, idle timeout, etc.). We recommend using a GPU like an RTX 3090 or better.  
+   * Click **Create Endpoint**.  
+5. **Build and Push the Docker Image:**  
+   * Clone your forked repository to your local machine.  
+   * Build the Docker image using the provided Dockerfile:  
+     docker build \-t your-dockerhub-username/speaches-runpod:latest .
 
-## Demos
+   * Push the image to Docker Hub (or your preferred registry):  
+     docker push your-dockerhub-username/speaches-runpod:latest
 
-### Realtime API
+     Ensure the image name matches what you configured in the Runpod template.  
+6. **Deployment:** Runpod will automatically pull the image and deploy your endpoint.
 
-https://github.com/user-attachments/assets/457a736d-4c29-4b43-984b-05cc4d9995bc
+## **How to Use the Endpoint**
 
-(Excuse the breathing lol. Didn't have enough time to record a better demo)
+Once your endpoint is active, you can send requests to it using its unique URL. The request body should follow the schema defined in .runpod/hub.json.
 
-### Streaming Transcription
+The handler.py script expects an input object with the following fields:
 
-TODO
+* method: The HTTP method (e.g., "POST").  
+* path: The API path you want to reach (e.g., "/v1/audio/speech").  
+* body: A JSON object containing the request payload for the Speaches server.  
+* file\_url (optional): For transcription, provide a public URL to the audio file.
 
-### Speech Generation
+### **Example: Text-to-Speech (TTS)**
 
-https://github.com/user-attachments/assets/0021acd9-f480-4bc3-904d-831f54c4d45b
+You can send a request to your Runpod endpoint URL (https://api.runpod.ai/v2/{YOUR\_ENDPOINT\_ID}/runsync).
+
+**Request Body (input object):**
+```
+{  
+  "input": {  
+    "method": "POST",  
+    "path": "/v1/audio/speech",  
+    "body": {  
+      "model": "en\_US-amy-medium",  
+      "input": "Hello from Runpod\! This is text-to-speech in action."  
+    }  
+  }  
+}
+
+Response:  
+The response will be a JSON object. If the request is successful, it will contain the base64-encoded audio content.  
+{  
+  "status": "success",  
+  "content\_type": "audio/wav",  
+  "audio\_content": "UklGRiS....(base64 data)..."  
+}
+```
+You can then decode this string to get the audio file.
+
+### **Example: Speech-to-Text (STT)**
+
+**Request Body (input object):**
+```
+{  
+  "input": {  
+    "method": "POST",  
+    "path": "/v1/audio/transcriptions",  
+    "file\_url": "https\_url\_to\_your\_public\_audio\_file.wav",  
+    "body": {  
+        "model": "large-v3"  
+    }  
+  }  
+}
+```
+**Response:**
+```
+{  
+  "text": "This is the transcribed text from your audio file."  
+}  
+```

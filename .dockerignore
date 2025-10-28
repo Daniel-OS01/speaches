@@ -4,3 +4,5 @@
 !uv.lock
 !model_aliases.json
 !realtime-console
+!handler.py
+!runpod_requirements.txt

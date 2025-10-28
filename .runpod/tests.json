@@ -1,0 +1,21 @@
+[
+  {
+    "name": "Test Text-to-Speech",
+    "input": {
+      "method": "POST",
+      "path": "/v1/audio/speech",
+      "body": {
+        "model": "en_US-amy-medium",
+        "input": "Hello, world! This is a test of the Speaches server on Runpod."
+      }
+    }
+  },
+  {
+    "name": "Test List Models",
+    "input": {
+      "method": "GET",
+      "path": "/v1/models"
+    }
+  }
+]
+
