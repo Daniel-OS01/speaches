@@ -38,7 +38,7 @@ RUN pip install -r runpod_requirements.txt
 
 COPY --chown=ubuntu:ubuntu src/ ./src
 COPY --chown=ubuntu:ubuntu realtime-console/ ./realtime-console
-COPY --chown=ubuntu:ubuntu .runpod/handler.py ./handler.py
+COPY --chown=ubuntu:ubuntu ../handler.py ./handler.py
 COPY --chown=ubuntu:ubuntu model_aliases.json ./
 
 ENV UVICORN_HOST=127.0.0.1
