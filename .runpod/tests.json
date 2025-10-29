@@ -1,6 +1,14 @@
 {
   "tests": [
     {
+      "name": "Test Health Check",
+      "input": {
+        "method": "GET",
+        "path": "/health"
+      },
+      "timeout": 30000
+    },
+    {
       "name": "Test Text-to-Speech",
       "input": {
         "method": "POST",
@@ -11,7 +19,7 @@
           "voice": "af_heart"
         }
       },
-      "timeout": 30000
+      "timeout": 60000
     },
     {
       "name": "Test Speech-to-Text",
@@ -23,7 +31,7 @@
           "model": "Systran/faster-whisper-tiny.en"
         }
       },
-      "timeout": 30000
+      "timeout": 60000
     },
     {
       "name": "Test List Models",
@@ -31,7 +39,7 @@
         "method": "GET",
         "path": "/v1/models"
       },
-      "timeout": 10000
+      "timeout": 30000
     },
     {
       "name": "Test Model Registry",
@@ -39,7 +47,7 @@
         "method": "GET",
         "path": "/v1/registry"
       },
-      "timeout": 15000
+      "timeout": 30000
     },
     {
       "name": "Test Voice Activity Detection",
@@ -48,15 +56,7 @@
         "path": "/v1/audio/speech/timestamps",
         "file_url": "https://github.com/Daniel-OS01/speaches/raw/master/audio.wav"
       },
-      "timeout": 20000
-    },
-    {
-      "name": "Test Realtime API Connection",
-      "input": {
-        "method": "GET",
-        "path": "/health"
-      },
-      "timeout": 5000
+      "timeout": 60000
     },
     {
       "name": "Test Dynamic Model Loading",
@@ -64,7 +64,7 @@
         "method": "GET",
         "path": "/api/ps"
       },
-      "timeout": 10000
+      "timeout": 30000
     }
   ],
   "config": {

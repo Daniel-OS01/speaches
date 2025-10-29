@@ -21,26 +21,31 @@ except ImportError:
 basicConfig(level=INFO)
 logger = getLogger(__name__)
 
+# Global variables for server process and state
+server_process = None
+SERVER_HOST = os.getenv("UVICORN_HOST", "127.0.0.1")
+SERVER_PORT = int(os.getenv("UVICORN_PORT", "8000"))
+SERVER_IS_READY = False
 
-def start_server() -> tuple[subprocess.Popen[bytes], str, int]:
+
+def start_server() -> subprocess.Popen[bytes]:
     """Starts the Uvicorn server for Speaches in a background subprocess."""
-    host = os.getenv("UVICORN_HOST", "127.0.0.1")
-    port = int(os.getenv("UVICORN_PORT", "8000"))
+    global server_process, SERVER_HOST, SERVER_PORT
+    
+    if server_process is not None:
+        logger.info("Speaches server is already running.")
+        return server_process
 
     logger.info("Starting Speaches server...")
     # Command to start the FastAPI application using uvicorn
-    command = ["uvicorn", "speaches.main:app", "--host", host, "--port", str(port)]
+    command = ["uvicorn", "speaches.main:app", "--host", SERVER_HOST, "--port", str(SERVER_PORT)]
     # Start the server as a subprocess
     server_process = subprocess.Popen(command)
     logger.info(f"Speaches server process started with PID: {server_process.pid}")
-    return server_process, host, port
+    return server_process
 
 
-# Start the server once when the worker initializes
-server_process, SERVER_HOST, SERVER_PORT = start_server()
-
-
-def is_server_ready(host: str, port: int, retries: int = 12, delay: int = 5) -> bool:
+def is_server_ready(host: str, port: int, retries: int = 30, delay: int = 2) -> bool:
     """Checks if the background server is ready to accept connections."""
     url = f"http://{host}:{port}/health"
     for i in range(retries):
@@ -56,8 +61,21 @@ def is_server_ready(host: str, port: int, retries: int = 12, delay: int = 5) -> 
     return False
 
 
-# Wait for the server to be ready before starting the handler
-SERVER_IS_READY = is_server_ready(SERVER_HOST, SERVER_PORT)
+def ensure_server_ready() -> bool:
+    """Ensure the server is started and ready."""
+    global SERVER_IS_READY, server_process
+    
+    # If server is already confirmed ready, return immediately
+    if SERVER_IS_READY:
+        return True
+    
+    # Start server if not already started
+    if server_process is None:
+        start_server()
+    
+    # Check if server is ready
+    SERVER_IS_READY = is_server_ready(SERVER_HOST, SERVER_PORT)
+    return SERVER_IS_READY
 
 
 def handler(event: dict[str, Any]) -> dict[str, Any]:
@@ -75,7 +93,8 @@ def handler(event: dict[str, Any]) -> dict[str, Any]:
 
     Returns the response from the server.
     """
-    if not SERVER_IS_READY:
+    # Ensure server is ready before processing request
+    if not ensure_server_ready():
         return {"error": {"message": "Server is not running or failed to start."}}
 
     job_input = event.get("input", {})
@@ -164,10 +183,23 @@ def handler(event: dict[str, Any]) -> dict[str, Any]:
 
 # Start the Runpod serverless worker
 if __name__ == "__main__":
-    if RUNPOD_AVAILABLE and SERVER_IS_READY:
+    if RUNPOD_AVAILABLE:
         logger.info("Starting Runpod serverless handler.")
+        # Start server when the handler module is loaded
+        start_server()
+        # Give the server a moment to start before starting the handler
+        time.sleep(2)
         runpod.serverless.start({"handler": handler})  # type: ignore # noqa: PGH003
     elif not RUNPOD_AVAILABLE:
         logger.warning("Runpod is not available. Skipping Runpod handler initialization.")
-    else:
-        logger.critical("Cannot start Runpod handler because Speaches server is not ready.")
+        # For local testing without runpod
+        start_server()
+        # Keep the process alive
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            logger.info("Shutting down...")
+            if server_process:
+                server_process.terminate()
+                server_process.wait()
