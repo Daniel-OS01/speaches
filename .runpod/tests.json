@@ -6,8 +6,21 @@
         "method": "POST",
         "path": "/v1/audio/speech",
         "body": {
-          "model": "en_US-amy-medium",
-          "input": "Hello, world! This is a test of the Speaches server on Runpod."
+          "model": "speaches-ai/en_US-amy-medium",
+          "input": "Hello, world! This is a test of the Speaches server on Runpod.",
+          "voice": "af_heart"
+        }
+      },
+      "timeout": 30000
+    },
+    {
+      "name": "Test Speech-to-Text",
+      "input": {
+        "method": "POST",
+        "path": "/v1/audio/transcriptions",
+        "file_url": "https://github.com/Daniel-OS01/speaches/raw/master/audio.wav",
+        "body": {
+          "model": "Systran/faster-whisper-tiny.en"
         }
       },
       "timeout": 30000
@@ -19,6 +32,39 @@
         "path": "/v1/models"
       },
       "timeout": 10000
+    },
+    {
+      "name": "Test Model Registry",
+      "input": {
+        "method": "GET",
+        "path": "/v1/registry"
+      },
+      "timeout": 15000
+    },
+    {
+      "name": "Test Voice Activity Detection",
+      "input": {
+        "method": "POST",
+        "path": "/v1/audio/speech/timestamps",
+        "file_url": "https://github.com/Daniel-OS01/speaches/raw/master/audio.wav"
+      },
+      "timeout": 20000
+    },
+    {
+      "name": "Test Realtime API Connection",
+      "input": {
+        "method": "GET",
+        "path": "/health"
+      },
+      "timeout": 5000
+    },
+    {
+      "name": "Test Dynamic Model Loading",
+      "input": {
+        "method": "GET",
+        "path": "/api/ps"
+      },
+      "timeout": 10000
     }
   ],
   "config": {
@@ -28,6 +74,10 @@
       {
         "key": "MODEL_LOAD_TIMEOUT",
         "value": "300"
+      },
+      {
+        "key": "HF_HUB_ENABLE_HF_TRANSFER",
+        "value": "1"
       }
     ],
     "allowedCudaVersions": [

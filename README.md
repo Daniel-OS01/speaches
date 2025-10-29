@@ -11,6 +11,15 @@ Speaches is an OpenAI API-compatible server for speech-to-text and text-to-speec
 
 This adaptation works by running the Speaches Uvicorn server inside the serverless worker. A Runpod handler script acts as a proxy, forwarding incoming API requests to the Speaches server and returning its responses. This setup ensures all features, including the Realtime API, VAD, and dynamic model loading, are available.
 
+Key features include:
+- OpenAI API compatibility for seamless integration with existing tools
+- Realtime API with VAD (Voice Activity Detection)
+- Dynamic model loading/unloading for efficient resource usage
+- Streaming transcription via SSE
+- Audio I/O support (text in/audio out, audio in/text out, audio in/audio out)
+- Support for multiple models including faster-whisper (STT), piper, and Kokoro (TTS)
+- GPU and CPU deployment options
+
 ## **How to Deploy**
 
 1. **Fork the Repository:** If you haven't already, fork the [speaches repository](https://github.com/Daniel-OS01/speaches) to your own GitHub account.  
@@ -50,6 +59,7 @@ The handler.py script expects an input object with the following fields:
 * path: The API path you want to reach (e.g., "/v1/audio/speech").  
 * body: A JSON object containing the request payload for the Speaches server.  
 * file\_url (optional): For transcription, provide a public URL to the audio file.
+* headers (optional): Additional headers to pass to the Speaches server.
 
 ### **Example: Text-to-Speech (TTS)**
 
@@ -62,8 +72,9 @@ You can send a request to your Runpod endpoint URL (https://api.runpod.ai/v2/{YO
     "method": "POST",  
     "path": "/v1/audio/speech",  
     "body": {  
-      "model": "en\_US-amy-medium",  
-      "input": "Hello from Runpod\! This is text-to-speech in action."  
+      "model": "speaches-ai/Kokoro-82M-v1.0-ONNX",
+      "input": "Hello from Runpod! This is text-to-speech in action.",
+      "voice": "af_heart"
     }  
   }  
 }
@@ -90,7 +101,7 @@ You can then decode this string to get the audio file.
     "path": "/v1/audio/transcriptions",  
     "file\_url": "https\_url\_to\_your\_public\_audio\_file.wav",  
     "body": {  
-        "model": "large-v3"  
+        "model": "Systran/faster-whisper-tiny.en"
     }  
   }  
 }
@@ -101,3 +112,214 @@ You can then decode this string to get the audio file.
   "text": "This is the transcribed text from your audio file."  
 }  
 ```
+
+### **Example: List Available Models**
+
+**Request Body (input object):**
+```json
+{  
+  "input": {  
+    "method": "GET",  
+    "path": "/v1/models"
+  }  
+}
+```
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "id": "Systran/faster-whisper-tiny.en",
+      "task": "automatic-speech-recognition"
+    },
+    {
+      "id": "speaches-ai/Kokoro-82M-v1.0-ONNX",
+      "task": "text-to-speech"
+    }
+  ]
+}
+```
+
+### **Example: Discover Models in Registry**
+
+**Request Body (input object):**
+```json
+{  
+  "input": {  
+    "method": "GET",  
+    "path": "/v1/registry"
+  }  
+}
+```
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "id": "Systran/faster-whisper-tiny.en",
+      "task": "automatic-speech-recognition"
+    },
+    {
+      "id": "Systran/faster-whisper-small.en",
+      "task": "automatic-speech-recognition"
+    },
+    {
+      "id": "speaches-ai/Kokoro-82M-v1.0-ONNX",
+      "task": "text-to-speech"
+    }
+  ]
+}
+```
+
+### **Example: Voice Activity Detection (VAD)**
+
+**Request Body (input object):**
+```json
+{  
+  "input": {  
+    "method": "POST",  
+    "path": "/v1/audio/speech/timestamps",  
+    "file\_url": "https\_url\_to\_your\_public\_audio\_file.wav"
+  }  
+}
+```
+
+**Response:**
+```json
+[
+  {
+    "start": 100,
+    "end": 500
+  },
+  {
+    "start": 750,
+    "end": 1200
+  }
+]
+```
+
+### **Example: Dynamic Model Management**
+
+**List loaded models:**
+```json
+{  
+  "input": {  
+    "method": "GET",  
+    "path": "/api/ps"
+  }  
+}
+```
+
+**Load a model:**
+```json
+{  
+  "input": {  
+    "method": "POST",  
+    "path": "/api/ps/Systran/faster-whisper-tiny.en"
+  }  
+}
+```
+
+**Unload a model:**
+```json
+{  
+  "input": {  
+    "method": "DELETE",  
+    "path": "/api/ps/Systran/faster-whisper-tiny.en"
+  }  
+}
+```
+
+### **Example: Realtime API**
+
+To use the Realtime API, you'll need to connect via WebSocket:
+
+**WebSocket URL:**
+```
+wss://api.runpod.ai/v2/{YOUR_ENDPOINT_ID}/runsync/v1/realtime?model=Systran/faster-whisper-tiny.en&intent=transcription&api_key=your-api-key
+```
+
+Refer to the [Realtime API documentation](https://github.com/Daniel-OS01/speaches/blob/master/docs/speaches-docs/usage/realtime-api.md) for detailed usage instructions.
+
+### **Example: Voice Chat**
+
+For voice chat functionality, you can use the chat completions endpoint with audio:
+
+**Request Body (input object):**
+```json
+{  
+  "input": {  
+    "method": "POST",  
+    "path": "/v1/chat/completions",
+    "body": {
+      "model": "gpt-4o-mini",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "text",
+              "text": "What is in this recording?"
+            },
+            {
+              "type": "input_audio",
+              "input_audio": {
+                "data": "<base64_encoded_audio_data>",
+                "format": "wav"
+              }
+            }
+          ]
+        }
+      ],
+      "modalities": ["text", "audio"],
+      "audio": {
+        "voice": "alloy",
+        "format": "wav"
+      }
+    }
+  }  
+}
+```
+
+## **Advanced Usage**
+
+### **Model Aliasing**
+
+Speaches supports model aliasing for easier model management. You can use friendly names instead of full model paths:
+
+```json
+{
+  "whisper-1": "Systran/faster-whisper-large-v3",
+  "tts-1": "speaches-ai/Kokoro-82M-v1.0-ONNX"
+}
+```
+
+### **Open WebUI Integration**
+
+Speaches can be integrated with Open WebUI for a graphical interface. Configure the following settings in Open WebUI:
+
+- Speech-to-Text Engine: OpenAI
+- API Base URL: `http://your-runpod-endpoint-url/v1`
+- API Key: any non-empty value (e.g., "does-not-matter")
+- Model: `Systran/faster-whisper-tiny.en`
+
+### **Environment Variables**
+
+The following environment variables can be set to customize the behavior of Speaches:
+
+- `MODEL_LOAD_TIMEOUT`: Timeout for model loading (default: 300 seconds)
+- `HF_HUB_ENABLE_HF_TRANSFER`: Enable faster Hugging Face downloads (default: 1)
+- `HF_TOKEN`: Hugging Face token for private models (optional)
+
+## **Troubleshooting**
+
+If you encounter issues:
+
+1. **Check the model is downloaded:** Ensure the model you're trying to use has been downloaded to the server.
+2. **Verify the endpoint URL:** Make sure you're using the correct Runpod endpoint URL.
+3. **Check disk space:** Ensure you have allocated enough disk space (at least 15GB) for models.
+4. **Review logs:** Check Runpod logs for detailed error messages.
+
+For more detailed documentation, refer to the [Speaches documentation](https://github.com/Daniel-OS01/speaches/tree/master/docs/speaches-docs/usage).
