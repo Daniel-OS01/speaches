@@ -19,12 +19,12 @@ jobs:
       matrix:
         # https://hub.docker.com/r/nvidia/cuda/tags
         include:
-          - base-image: nvidia/cuda:12.6.3-cudnn-runtime-ubuntu24.04
-            tag-suffix: -cuda
+#          - base-image: nvidia/cuda:12.6.3-cudnn-runtime-ubuntu24.04
+#            tag-suffix: -cuda
           - base-image: nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
             tag-suffix: -cuda-12.4.1
-          - base-image: ubuntu:24.04
-            tag-suffix: -cpu
+#          - base-image: ubuntu:24.04
+#            tag-suffix: -cpu
     steps:
       - uses: actions/checkout@v4
       - id: meta
