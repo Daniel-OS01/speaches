@@ -1,7 +1,8 @@
 # **Speaches on Runpod Serverless**
 [![Runpod](https://api.runpod.io/badge/Daniel-OS01/speaches)](https://console.runpod.io/hub/Daniel-OS01/speaches)
 
-This document provides instructions on how to deploy and use the [Speaches](https://github.com/Daniel-OS01/speaches) server on [Runpod Serverless](https://www.google.com/search?q=https://www.runpod.io/serverless).
+This document provides instructions on how to deploy and use the [Speaches](https://github.com/Daniel-OS01/speaches) server on [Runpod Serverless](https://www.runpod.io/serverless-gpu).
+
 # Speaches
 
 ## **Overview**
@@ -27,10 +28,14 @@ This adaptation works by running the Speaches Uvicorn server inside the serverle
 5. **Build and Push the Docker Image:**  
    * Clone your forked repository to your local machine.  
    * Build the Docker image using the provided Dockerfile:  
+     ```bash
      docker build \-t your-dockerhub-username/speaches-runpod:latest .
+     ```
 
    * Push the image to Docker Hub (or your preferred registry):  
+     ```bash
      docker push your-dockerhub-username/speaches-runpod:latest
+     ```
 
      Ensure the image name matches what you configured in the Runpod template.  
 6. **Deployment:** Runpod will automatically pull the image and deploy your endpoint.
@@ -51,7 +56,7 @@ The handler.py script expects an input object with the following fields:
 You can send a request to your Runpod endpoint URL (https://api.runpod.ai/v2/{YOUR\_ENDPOINT\_ID}/runsync).
 
 **Request Body (input object):**
-```
+```json
 {  
   "input": {  
     "method": "POST",  
@@ -62,9 +67,11 @@ You can send a request to your Runpod endpoint URL (https://api.runpod.ai/v2/{YO
     }  
   }  
 }
+```
 
-Response:  
+**Response:**  
 The response will be a JSON object. If the request is successful, it will contain the base64-encoded audio content.  
+```json
 {  
   "status": "success",  
   "content\_type": "audio/wav",  
@@ -76,7 +83,7 @@ You can then decode this string to get the audio file.
 ### **Example: Speech-to-Text (STT)**
 
 **Request Body (input object):**
-```
+```json
 {  
   "input": {  
     "method": "POST",  
@@ -89,7 +96,7 @@ You can then decode this string to get the audio file.
 }
 ```
 **Response:**
-```
+```json
 {  
   "text": "This is the transcribed text from your audio file."  
 }  

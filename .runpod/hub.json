@@ -1,38 +1,36 @@
 {
-  "name": "Speaches",
+  "title": "Speaches",
   "description": "An OpenAI API-compatible server for streaming transcription (faster-whisper), translation, and speech generation (piper, Kokoro) on Runpod Serverless.",
-  "dockerfile": "Dockerfile",
-  "gpu": true,
-  "mem": "16Gi",
-  "schema": {
-    "input": {
-      "type": "object",
-      "properties": {
-        "method": {
-          "type": "string",
-          "description": "HTTP method (e.g., GET, POST).",
-          "default": "POST"
-        },
-        "path": {
-          "type": "string",
-          "description": "API path to proxy to the speaches server (e.g., /v1/audio/speech).",
-          "required": true
-        },
-        "headers": {
-          "type": "object",
-          "description": "Request headers."
-        },
-        "body": {
-          "type": "object",
-          "description": "JSON request body for the speaches API."
-        },
-        "file_url": {
-            "type": "string",
-            "description": "A public URL to a file to be used for upload (e.g., for transcriptions)."
+  "type": "serverless",
+  "category": "audio",
+  "config": {
+    "runsOn": "GPU",
+    "containerDiskInGb": 15,
+    "gpuCount": 1,
+    "gpuIds": "RTX A4000,-NVIDIA RTX 4090",
+    "allowedCudaVersions": [
+      "12.8",
+      "12.7",
+      "12.6",
+      "12.5",
+      "12.4",
+      "12.3",
+      "12.2",
+      "12.1",
+      "12.0"
+    ],
+    "env": [
+      {
+        "key": "MODEL_LOAD_TIMEOUT",
+        "input": {
+          "name": "Model Load Timeout",
+          "type": "number",
+          "description": "Timeout in seconds for model loading",
+          "default": 300,
+          "min": 60,
+          "max": 600
         }
-      },
-      "required": ["path", "method"]
-    }
+      }
+    ]
   }
 }
-
