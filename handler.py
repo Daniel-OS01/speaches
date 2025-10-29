@@ -10,6 +10,7 @@ import requests
 # Conditional import for runpod since it may not be available in all environments
 try:
     import runpod  # type: ignore # noqa: PGH003
+
     RUNPOD_AVAILABLE = True
 except ImportError:
     runpod = None  # type: ignore # noqa: PGH003

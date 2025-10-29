@@ -25,7 +25,7 @@ from speaches.model_registry import ModelRegistry
 
 # Conditional imports for piper modules since they may not be available on all platforms
 try:
-    from piper.voice import PiperVoice  # type: ignore # noqa: PGH003
+    from piper.voice import PiperVoice  # type: ignore[import-not-found]
 except (ImportError, ModuleNotFoundError):
     PiperVoice = Any  # type: ignore # noqa: PGH003
 
@@ -182,8 +182,8 @@ def generate_audio(
     # Fix: Check if piper_tts is available
     if piper_tts is None:
         return
-        yield  # type: ignore # noqa: PGH003
-    
+        yield  # type: ignore[unreachable]
+
     if sample_rate is None:
         sample_rate = piper_tts.config.sample_rate
     start = time.perf_counter()
@@ -210,20 +210,20 @@ class PiperModelManager(BaseModelManager["PiperVoice"]):  # type: ignore # noqa:
         # Fix import - import from correct modules with proper error handling
         piper_config_import_error = ImportError("Could not import PiperConfig from either piper.config or piper.voice")
         try:
-            from piper.config import PiperConfig  # type: ignore
+            from piper.config import PiperConfig  # type: ignore[import-not-found]
         except (ImportError, ModuleNotFoundError):
             try:
                 # Fallback to voice module if config module is not available
-                from piper.voice import PiperConfig  # type: ignore
+                from piper.voice import PiperConfig  # type: ignore[import-not-found]
             except (ImportError, ModuleNotFoundError):
                 # If neither is available, we can't load the model
-                raise piper_config_import_error from None  # type: ignore # noqa: PGH003
-        
+                raise piper_config_import_error from None
+
         piper_voice_import_error = ImportError("Could not import PiperVoice from piper.voice")
         try:
-            from piper.voice import PiperVoice  # type: ignore
+            from piper.voice import PiperVoice  # type: ignore[import-not-found]
         except (ImportError, ModuleNotFoundError):
-            raise piper_voice_import_error from None  # type: ignore # noqa: PGH003
+            raise piper_voice_import_error from None
 
         model_files = piper_model_registry.get_model_files(model_id)
         providers = get_ort_providers_with_options(self.ort_opts)
